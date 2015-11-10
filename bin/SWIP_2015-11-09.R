@@ -47,7 +47,7 @@ extract.col <- function(data){
 ##new code from Evan's analysis
 
 upper_thresh=115 ##set the local kink maxima threshold (degrees)
-lower_thresh=65 ##set the local kink minima threshold (degress)
+lower_thresh=-65 ##set the local kink minima threshold (degress)
 switch_time=0.5 ##set the maximum time between maxima and minima (seconds)
 
 
@@ -82,6 +82,21 @@ plot.kink <- function(parsed.data) {
   parsed.swip$good.peak[parsed.swip$good.peak == 1] <- 0
   parsed.swip$good.peak[parsed.swip$good.peak == 2] <- 1
   
+  ##calculate minima by using maxima calculations of negative values of kink
+  parsed.swip$kink.minima <- -(parsed.swip$kink)
+  parsed.swip$kink.minima <- peaks(parsed.swip$kink.minima, span=5)
+  
+  ##only keep minima for kink if below user set upper_thresh (e.g. 65 degrees)
+  
+  parsed.swip$kink.below.thresh <- parsed.swip$kink.minima > lower_thresh
+  
+  parsed.swip$good.minima <- parsed.swip$kink.minima + parsed.swip$kink.below.thresh 
+  parsed.swip$good.minima[parsed.swip$good.minima == 1] <- 0
+  parsed.swip$good.minima[parsed.swip$good.minima == 2] <- 1
+  
+  ##only count a maximum if it's followed by a minimum in 0.5s
+  
+  
   
   
   ##summarise over time periods
@@ -90,12 +105,13 @@ plot.kink <- function(parsed.data) {
   parsed.swip$time.interval.5s <- cut(parsed.swip$time, breaks=seq(0, max(parsed.swip$time), by = 5))
   
   ##change time interval to lower number of time interval (20-25=20)
-  parsed.swip$time.interval.5s <- as.numeric(str_extract(parsed.swip$time.interval, "[1-9]{1}[0-9]*"))
+  parsed.swip$time.interval.5s <- as.numeric(str_extract(parsed.swip$time.interval.5s, "[1-9]{1}[0-9]*"))
   
   ##remove lines with NA values (rows at 660+ seconds can't figure out the time interval and are thus NA)
   parsed.swip <- parsed.swip[complete.cases(parsed.swip),]
   
   ##make a new dataframe that adds a new column with the sum of good peaks in every time interval
+  ##necessary?
   swip.5s <- ddply(parsed.swip,.(plate,strain,ID,time.interval.5s),transform,sum.good.peak = sum(good.peak))
   
   ##make two new columns that calculate the minimum and maximum time worms were tracked in a given time period (did worms persist for the entire 5s?)
@@ -124,14 +140,14 @@ plot.kink <- function(parsed.data) {
   
   
   ##plotting kink for each 5 sec block for all worms existing for the entire block
-  plot  <- ggplot(swip.5s.persisting.summ, aes(x = time.interval.5s, y = mean.kinks, colour = strain)) +
+  plot1  <- ggplot(swip.5s.persisting.summ, aes(x = time.interval.5s, y = mean.kinks, colour = strain)) +
     geom_line() + geom_point() +
     geom_errorbar(aes(ymin=lower, ymax=upper)) +
     labs(x="Time", y="Kink")
   
-  plot
+  plot1
   
-  ggsave(plot, file="Figure.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
+  ggsave(plot1, file="Thrashing_frequency.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
   
 }
 
@@ -144,7 +160,20 @@ kinks.600 <- swip.5s.persisting[swip.5s.persisting$time.interval.5s == 600,]
 
 swimming.600 <- ddply(kinks.600,.(strain),summarise,fraction.swimming=sum(kinks!=0.0)/length(kinks), N=length(kinks))
 
-plot <- ggplot(swimming.600, aes(x=strain, y=fraction.swimming)) +
+plot2 <- ggplot(swimming.600, aes(x=strain, y=fraction.swimming)) +
   geom_point()
-plot
+plot2
+
+ggsave(plot2, file="Fraction_swimming_10min.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
+
+##graph fraction swimming throughout entire experiment
+
+fraction.swimming.throughout <- ddply(swip.5s.persisting,.(strain,time.interval.5s),summarise,fraction.swimming=sum(kinks!=0.0)/length(kinks), N=length(kinks))
+
+plot3 <- ggplot(fraction.swimming.throughout, aes(x=as.numeric(time.interval.5s), y=fraction.swimming, colour=strain)) +
+  geom_point() +
+  geom_line()
+plot3
+
+ggsave(plot3, file="Fraction_swimming_throughout.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
 
