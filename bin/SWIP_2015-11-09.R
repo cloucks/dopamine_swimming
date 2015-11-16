@@ -5,6 +5,7 @@
 library(stringr)
 library(splus2R)
 library(plyr)
+library(dplyr)
 library(ggplot2)
 
 ##main function
@@ -14,17 +15,19 @@ main <- function() {
   ##using function to extract column names
   parsed.swip  <- extract.col(read.table("swip.dat"))
   
-  ##test
-  ##original.parsed.data <- parsed.data
-  ##test.data <- parsed.data[1:5000,]
-  ##parsed.data <- test.data
+  ##counting thrashes over time
+  thrashes.swip <- count.thrashes(parsed.swip)
   
-  ##call script to look at kink 
-  plot.kink(parsed.data)
+  ##plot thrashing frequency over time 
+  plot.thrashing.frequency(thrashes.swip)
+  
+  ##plot number of worms swimming at 10min
+  plot.swimming.10min(thrashes.swip)
 }
 
 
-##function for creating choreography output file with column names
+
+# function for choreography output with column names -----------------------------------
 
 extract.col <- function(data){
   ## split up column V1 into date, plate, time and strain 
@@ -44,18 +47,20 @@ extract.col <- function(data){
   
 }
 
+# function for counting thrashes over time --------------------------------
+
+
+count.thrashes <- function(data){
+
 ##new code from Evan's analysis
 
 upper_thresh=115 ##set the local kink maxima threshold (degrees)
-lower_thresh=-65 ##set the local kink minima threshold (degress)
-switch_time=0.5 ##set the maximum time between maxima and minima (seconds)
+#lower_thresh=-65 ##set the local kink minima threshold (degress)
+#switch_time=0.5 ##set the maximum time between maxima and minima (seconds)
 
-
-
-plot.kink <- function(parsed.data) {
   
   ##remove lines with NA values
-  parsed.swip <- parsed.swip[complete.cases(parsed.swip),]
+  parsed.swip <- data[complete.cases(data),]
   
   ##remove lines with length values under 0.2000 (trying to exclude anything that isn't a worm, when worms bend for swimming their length becomes ~0.4000-0.5000, while straight worms are ~ 0.7000-0.8000), used a more conservative/smaller length because some strains are smaller than others
   ##doesn't work - want to remove IDs that are always below 0.2000
@@ -83,21 +88,18 @@ plot.kink <- function(parsed.data) {
   parsed.swip$good.peak[parsed.swip$good.peak == 2] <- 1
   
   ##calculate minima by using maxima calculations of negative values of kink
-  parsed.swip$kink.minima <- -(parsed.swip$kink)
-  parsed.swip$kink.minima <- peaks(parsed.swip$kink.minima, span=5)
+  #parsed.swip$kink.minima <- -(parsed.swip$kink)
+  #parsed.swip$kink.minima <- peaks(parsed.swip$kink.minima, span=5)
   
   ##only keep minima for kink if below user set upper_thresh (e.g. 65 degrees)
   
-  parsed.swip$kink.below.thresh <- parsed.swip$kink.minima > lower_thresh
+  #parsed.swip$kink.below.thresh <- parsed.swip$kink.minima > lower_thresh
   
-  parsed.swip$good.minima <- parsed.swip$kink.minima + parsed.swip$kink.below.thresh 
-  parsed.swip$good.minima[parsed.swip$good.minima == 1] <- 0
-  parsed.swip$good.minima[parsed.swip$good.minima == 2] <- 1
+  #parsed.swip$good.minima <- parsed.swip$kink.minima + parsed.swip$kink.below.thresh 
+  #parsed.swip$good.minima[parsed.swip$good.minima == 1] <- 0
+  #parsed.swip$good.minima[parsed.swip$good.minima == 2] <- 1
   
   ##only count a maximum if it's followed by a minimum in 0.5s
-  
-  
-  
   
   ##summarise over time periods
   
@@ -112,7 +114,7 @@ plot.kink <- function(parsed.data) {
   
   ##make a new dataframe that adds a new column with the sum of good peaks in every time interval
   ##necessary?
-  swip.5s <- ddply(parsed.swip,.(plate,strain,ID,time.interval.5s),transform,sum.good.peak = sum(good.peak))
+  #swip.5s <- ddply(parsed.swip,.(plate,strain,ID,time.interval.5s),transform,sum.good.peak = sum(good.peak))
   
   ##make two new columns that calculate the minimum and maximum time worms were tracked in a given time period (did worms persist for the entire 5s?)
   swip.5s <- ddply(parsed.swip,.(plate,strain,ID,time.interval.5s),
@@ -127,44 +129,67 @@ plot.kink <- function(parsed.data) {
     ##summarise to show kinks/s per worm per time period so that only worms that persist the entire 5s time period are used
     swip.5s.persisting <- ddply(swip.5s,.(plate,strain,ID,time.interval.5s),summarise, kinks=ifelse(min.time<(time.interval.5s+0.05) && max.time>(time.interval.5s+4.95), sum.good.peak/5,NA)) 
     
-    swip.5s.persisting <- swip.5s.persisting[complete.cases(swip.5s.persisting),]
+    swip.5s.persisting <- swip.5s.persisting[complete.cases(swip.5s.persisting),] 
+    
+
+}
   
-  ##summarise to show mean of kinks (thrashing frequency) and standard deviation for a time period per strain (don't include lines with na)
-    swip.5s.persisting.summ <- ddply(swip.5s.persisting,.(strain,time.interval.5s),summarise,mean.kinks=mean(kinks,na.rm=TRUE),stdev=stdev(kinks,na.rm=TRUE), N=length(which(!is.na(kinks))))
+
+# function to plot thrashing frequency in 5s blocks -----------------------
   
-  ##calculate sem
+  plot.thrashing.frequency <- function(data){
+    
+    ##summarise to show mean of kinks (thrashing frequency) and standard deviation for a time period per strain (don't include lines with na)
+    swip.5s.persisting.summ <- ddply(swip.5s.persisting,.(strain,time.interval.5s),summarise,mean.kinks=mean(kinks,na.rm=TRUE),stdev=stdev(kinks,na.rm=TRUE), N=length(which(!is.na(kinks))), median.kinks=median(kinks,na.rm=TRUE))
+    
+    ##calculate sem
     swip.5s.persisting.summ$sem <- swip.5s.persisting.summ$stdev/sqrt(swip.5s.persisting.summ$N)
-  
+    
     swip.5s.persisting.summ$upper <- swip.5s.persisting.summ$mean.kinks + swip.5s.persisting.summ$sem
     swip.5s.persisting.summ$lower <- swip.5s.persisting.summ$mean.kinks - swip.5s.persisting.summ$sem
-  
-  
+    
+    ##organize data to plot at every 20 sec
+    #swip.5s.persisting.summ.20s <- swip.5s.persisting.summ[seq(1, nrow(swip.5s.persisting.summ), 4), ]
+    
   ##plotting kink for each 5 sec block for all worms existing for the entire block
   plot1  <- ggplot(swip.5s.persisting.summ, aes(x = time.interval.5s, y = mean.kinks, colour = strain)) +
-    geom_line() + geom_point() +
-    geom_errorbar(aes(ymin=lower, ymax=upper)) +
+    geom_line(size=1.5) +
+    geom_errorbar(aes(ymin=lower, ymax=upper, alpha=0.5)) +
     labs(x="Time", y="Kink")
-  
-  plot1
   
   ggsave(plot1, file="Thrashing_frequency.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
   
-}
+  return(plot1)
+  }
+  
 
+
+# function to plot fraction of worms swimming at 10 min -------------------
+
+plot.swimming.10min <- function(data){
 #extract number of worms paralysed at 10 min
 
 #make a new dataframe with only the time period at 600s (10 min)
-kinks.600 <- swip.5s.persisting[swip.5s.persisting$time.interval.5s == 600,]
+kinks.600 <- data[data$time.interval.5s == 600,]
+
+
+
+kinks.600$swimming <- kinks.600$kinks != 0.0
 
 ##make a new data frame summarising worms swimming in the 5 seconds at 10 min/worms that were tracked in the last 5s
 
-swimming.600 <- ddply(kinks.600,.(strain),summarise,fraction.swimming=sum(kinks!=0.0)/length(kinks), N=length(kinks))
+##swimming.600 <- ddply(kinks.600,.(strain),summarise,fraction.swimming=sum(kinks!=0.0)/length(kinks), N=length(kinks))
 
-plot2 <- ggplot(swimming.600, aes(x=strain, y=fraction.swimming)) +
-  geom_point()
+plot2 <- ggplot(kinks.600, aes(x=strain, y=kinks)) +
+  geom_point(position=position_jitter(width=0.1)) +
+  geom_boxplot(alpha=0.2, outlier.shape = NA)
 plot2
 
 ggsave(plot2, file="Fraction_swimming_10min.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
+
+return(plot2)
+
+}
 
 ##graph fraction swimming throughout entire experiment
 
