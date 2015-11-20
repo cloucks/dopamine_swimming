@@ -54,32 +54,32 @@ count.thrashes <- function(data){
 
 ##new code from Evan's analysis
 
-upper_thresh=115 ##set the local kink maxima threshold (degrees)
-#lower_thresh=-65 ##set the local kink minima threshold (degress)
+upper_thresh=50 ##set the local kink maxima threshold (degrees)
+lower_thresh=50 ##set the local kink minima threshold (degress)
 #switch_time=0.5 ##set the maximum time between maxima and minima (seconds)
 
   
   ##remove lines with NA values
-  parsed.swip <- data[complete.cases(data),]
+  parsed.swip <- parsed.swip[complete.cases(parsed.swip),]
   
   ##remove lines with length values under 0.2000 (trying to exclude anything that isn't a worm, when worms bend for swimming their length becomes ~0.4000-0.5000, while straight worms are ~ 0.7000-0.8000), used a more conservative/smaller length because some strains are smaller than others
   ##doesn't work - want to remove IDs that are always below 0.2000
   ##parsed.data <- parsed.data[parsed.data$length>0.2000, ]
   
   ##replace time column (factor) with time as numeric
-  parsed.swip$time  <- as.numeric(levels(parsed.swip$time))[parsed.swip$time]
+  parsed.swip$timeN  <- as.numeric(levels(parsed.swip$time))[parsed.swip$time]
   
   
   ##get rid of data from 0-20s of the experiment (sometimes the tracker doesn't start tracking 
   ##until 15s into the experiment)
-  parsed.swip  <- parsed.swip[which(parsed.swip$time>20),]
+  parsed.swip  <- parsed.swip[which(parsed.swip$timeN>20),]
   
   ##find peaks (maxima)
   
   ##extract peaks (maxima for kink)
-  parsed.swip$kink.peaks <- peaks(parsed.swip$kink, span=5)
+  parsed.swip$kink.peaks <- peaks(parsed.swip$kink, span=7)
   
-  ##only keep maxima for kink if above user set upper_thresh (e.g. 115 degrees)
+  ##only keep maxima for kink if above user set upper_thresh (e.g. 50 degrees)
   parsed.swip$kink.above.thresh <- parsed.swip$kink > upper_thresh
   
 
@@ -88,23 +88,37 @@ upper_thresh=115 ##set the local kink maxima threshold (degrees)
   parsed.swip$good.peak[parsed.swip$good.peak == 2] <- 1
   
   ##calculate minima by using maxima calculations of negative values of kink
-  #parsed.swip$kink.minima <- -(parsed.swip$kink)
-  #parsed.swip$kink.minima <- peaks(parsed.swip$kink.minima, span=5)
+  parsed.swip$kink.minima <- -(parsed.swip$kink)
+  parsed.swip$kink.minima <- peaks(parsed.swip$kink.minima, span=7)
   
-  ##only keep minima for kink if below user set upper_thresh (e.g. 65 degrees)
+  ##only keep minima for kink if below user set upper_thresh (e.g. 50 degrees)
   
-  #parsed.swip$kink.below.thresh <- parsed.swip$kink.minima > lower_thresh
+  parsed.swip$kink.below.thresh <- parsed.swip$kink.minima < lower_thresh
   
-  #parsed.swip$good.minima <- parsed.swip$kink.minima + parsed.swip$kink.below.thresh 
-  #parsed.swip$good.minima[parsed.swip$good.minima == 1] <- 0
-  #parsed.swip$good.minima[parsed.swip$good.minima == 2] <- 1
+  parsed.swip$good.minima <- parsed.swip$kink.minima + parsed.swip$kink.below.thresh 
+  parsed.swip$good.minima[parsed.swip$good.minima == 1] <- 0
+  parsed.swip$good.minima[parsed.swip$good.minima == 2] <- 1
   
   ##only count a maximum if it's followed by a minimum in 0.5s
+  
+  #swip.max.min <- parsed.swip[parsed.swip$good.peak == 1 | parsed.swip$good.min == 1,]
+  #swip.no.threshold <- parsed.swip[parsed.swip$kink.peaks == TRUE | parsed.swip$kink.minima == TRUE,]
+  
+  #swip.max.min.time.diff <- swip.max.min %>%
+    #mutate(min.max = time - lag(time, default = 0)) %>%
+    #mutate(real.max = good.peak == 1 & lead(good.minima == 1) & lead(min.max) < 0.5) 
+  
+  ##in progress
+  parsed.swip %>%
+    mutate(time.next.min = time -lag())
+  
+  ##kink.good.peaks <- swip.max.min.time.diff[,c(1:5,7,10,13)]
+  
   
   ##summarise over time periods
   
   ##break up by time periods by adding a new column (every 5 seconds)
-  parsed.swip$time.interval.5s <- cut(parsed.swip$time, breaks=seq(0, max(parsed.swip$time), by = 5))
+  parsed.swip$time.interval.5s <- cut(parsed.swip$timeN, breaks=seq(0, max(parsed.swip$timeN), by = 5))
   
   ##change time interval to lower number of time interval (20-25=20)
   parsed.swip$time.interval.5s <- as.numeric(str_extract(parsed.swip$time.interval.5s, "[1-9]{1}[0-9]*"))
@@ -119,8 +133,8 @@ upper_thresh=115 ##set the local kink maxima threshold (degrees)
   ##make two new columns that calculate the minimum and maximum time worms were tracked in a given time period (did worms persist for the entire 5s?)
   swip.5s <- ddply(parsed.swip,.(plate,strain,ID,time.interval.5s),
                                transform,
-                               min.time=min(time), 
-                               max.time=max(time))
+                               min.time=min(timeN), 
+                               max.time=max(timeN))
   
   ##make a new dataframe that summarises the average number of peaks for each ID according to strain and plate and output the min and max times
   swip.5s <- ddply(swip.5s,.(plate,strain,ID,time.interval.5s,min.time,max.time),summarise,sum.good.peak=sum(good.peak))
