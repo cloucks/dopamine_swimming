@@ -55,12 +55,13 @@ count.thrashes <- function(data){
 ##new code from Evan's analysis
 
 upper_thresh=80 ##set the local kink maxima threshold (degrees)
-lower_thresh=50 ##set the local kink minima threshold (degress)
-#switch_time=0.5 ##set the maximum time between maxima and minima (seconds)
+lower_thresh=50 ##set the local kink minima threshold (degrees)
+switch_time=0.5 ##set the maximum time between maxima and minima (seconds)
 
   
   ##remove lines with NA values
-  parsed.swip <- parsed.swip[complete.cases(parsed.swip),]
+  ##parsed.swip <- parsed.swip[complete.cases(parsed.swip),]
+  parsed.swip <- data[complete.cases(data),]
   
   
   ##replace time column (factor) with time as numeric
@@ -76,7 +77,7 @@ lower_thresh=50 ##set the local kink minima threshold (degress)
   ##extract peaks (maxima for kink)
   parsed.swip$kink.peaks <- peaks(parsed.swip$kink, span=7)
   
-  ##only keep maxima for kink if above user set upper_thresh (e.g. 50 degrees)
+  ##only keep maxima for kink if above user set upper_thresh (e.g. 80 degrees)
   parsed.swip$kink.above.thresh <- parsed.swip$kink > upper_thresh
   
 
@@ -90,7 +91,7 @@ lower_thresh=50 ##set the local kink minima threshold (degress)
   
   #only keep minima for kink if below user set upper_thresh (e.g. 50 degrees)
   
-  parsed.swip$kink.below.thresh <- parsed.swip$kink.minima > lower_thresh
+  parsed.swip$kink.below.thresh <- parsed.swip$kink < lower_thresh
   
   parsed.swip$good.minima <- parsed.swip$kink.minima + parsed.swip$kink.below.thresh 
   parsed.swip$good.minima[parsed.swip$good.minima == 1] <- 0
@@ -144,18 +145,10 @@ lower_thresh=50 ##set the local kink minima threshold (degress)
   
   swip.max.min.time.diff <- swip.max.min %>%
   mutate(min.max = time - lag(time, default = 0)) %>%
-  mutate(real.max = good.peak == 1 & lead(good.minima == 1) & lead(min.max) < 0.5) 
-  
-  ##in progress
-  ##parsed.swip %>%
-  ##mutate(time.next.min = time -lag())
-  
-  
-  
-                   
+  mutate(real.max = good.peak == 1 & lead(good.minima == 1) & lead(min.max) < switch_time) 
   
   ##make a new dataframe that summarises the average number of peaks for each ID according to strain and plate and output the min and max times
-  swip.5s <- ddply(swip.5s,.(plate,strain,ID,time.interval.5s,min.time,max.time),summarise,sum.good.peak=sum(good.peak))
+  swip.5s <- ddply(swip.max.min.time.diff,.(plate,strain,ID,time.interval.5s,min.time,max.time),summarise,sum.good.peak=sum(real.max))
   
   
     ##summarise to show kinks/s per worm per time period so that only worms that persist the entire 5s time period are used
@@ -185,6 +178,7 @@ lower_thresh=50 ##set the local kink minima threshold (degress)
     geom_line(size=1.5) +
     geom_errorbar(aes(ymin=lower, ymax=upper, alpha=0.5)) +
     labs(x="Time", y="Kink")
+  plot1
   
   ggsave(plot1, file="Thrashing_frequency.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
   
@@ -199,6 +193,7 @@ plot.swimming.10min <- function(data){
 #extract number of worms paralysed at 10 min
 
 #make a new dataframe with only the time period at 600s (10 min)
+  #kinks.600 <- swip.5s.persisting[swip.5s.persisting$time.interval.5s == 600,]
 kinks.600 <- data[data$time.interval.5s == 600,]
 
 
@@ -214,7 +209,7 @@ plot2 <- ggplot(kinks.600, aes(x=strain, y=kinks)) +
   geom_boxplot(alpha=0.2, outlier.shape = NA)
 plot2
 
-ggsave(plot2, file="Fraction_swimming_10min.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
+ggsave(plot2, file="thrashing_frequency_10min.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
 
 return(plot2)
 
@@ -225,9 +220,19 @@ return(plot2)
 fraction.swimming.throughout <- ddply(swip.5s.persisting,.(strain,time.interval.5s),summarise,fraction.swimming=sum(kinks!=0.0)/length(kinks), N=length(kinks))
 
 plot3 <- ggplot(fraction.swimming.throughout, aes(x=as.numeric(time.interval.5s), y=fraction.swimming, colour=strain)) +
-  geom_point() +
   geom_line()
 plot3
 
 ggsave(plot3, file="Fraction_swimming_throughout.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
+
+#fraction swimming at 600s
+fraction.swimming.600 <- fraction.swimming.throughout[fraction.swimming.throughout$time.interval.5s == 600,]
+
+plot4 <- ggplot(fraction.swimming.600, aes(x=strain, y=fraction.swimming)) +
+  geom_bar(stat="identity")
+
+plot4
+
+
+ggsave(plot4, file="Fraction_swimming_at_10min.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
 
