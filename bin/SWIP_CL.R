@@ -1,22 +1,37 @@
+#Tidied up by Catrina Loucks, 2015-11-09
+#Written by Catrina Loucks, 2015
+
+#load required libraries
+library(stringr)
+library(splus2R)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(binom)
+
 ##main function
 
 main <- function() {
   
   ##using function to extract column names
-  parsed.data  <- extract.col(read.table("swip.dat"))
+  parsed.swip  <- extract.col(read.table("swip.dat"))
   
+  ##counting thrashes over time
+  thrashes.swip <- count.thrashes(parsed.swip)
   
-  ##call script to look at kink 
-  plot.kink(parsed.data)
+  ##plot thrashing frequency over time 
+  plot.thrashing.frequency(thrashes.swip)
+  
+  ##plot number of worms swimming at 10min
+  plot.fraction.swimming(thrashes.swip)
 }
 
 
 
-##function for creating choreography output file with column names
+# function for choreography output with column names -----------------------------------
 
 extract.col <- function(data){
   ## split up column V1 into date, plate, time and strain 
-  library(stringr)
   date <- str_extract(data$V1, "[0-9]{8}")
   plate <- str_extract(data$V1, "[0-9]{8}_[0-9]{6}")
   time <- str_extract(data$V1, ":[0-9]+[.][0-9]+")
@@ -26,118 +41,206 @@ extract.col <- function(data){
   ## combine new columns with merged file
   new.data <- cbind(date, plate, time, strain, data[,2:dim(data)[2]])
   
+  #re-order strain factor so that plots are in appropriate order
+  new.data$strain <- factor(new.data$strain, levels=c("N2","dat-1","gk","tm","ow47","r1","er1","res1","res2","N2res1","N2res2","N2frag1","N2frag2"), order=TRUE)
+  
   ##rename columns  
   colnames(new.data) <- c("date", "plate", "time", "strain", "ID", "length", "kink")
   
   return(new.data)
   
 }
-  
+
+# function for counting thrashes over time --------------------------------
+
+
+count.thrashes <- function(data){
+
 ##new code from Evan's analysis
 
-upper_thresh=115 ##set the local kink maxima threshold (degrees)
-lower_thresh=65 ##set the local kink minima threshold (degress)
+upper_thresh=80 ##set the local kink maxima threshold (degrees)
+lower_thresh=50 ##set the local kink minima threshold (degrees)
 switch_time=0.5 ##set the maximum time between maxima and minima (seconds)
 
-
-
-plot.kink <- function(parsed.data) {
   
   ##remove lines with NA values
-  parsed.data <- parsed.data[complete.cases(parsed.data),]
+  ##parsed.swip <- parsed.swip[complete.cases(parsed.swip),]
+  parsed.swip <- data[complete.cases(data),]
+  
   
   ##replace time column (factor) with time as numeric
-  parsed.data$time  <- as.numeric(levels(parsed.data$time))[parsed.data$time]
-  
-  ##bin into time intervals to make it quicker to plot (average speed over every 20s for 11 min)
+  parsed.swip$time  <- as.numeric(levels(parsed.swip$time))[parsed.swip$time]
   
   
-  ##get rid of data from 0-40s of the experiment (sometimes the tracker doesn't start tracking 
+  ##get rid of data from 0-20s of the experiment (sometimes the tracker doesn't start tracking 
   ##until 15s into the experiment)
-  parsed.data.over20  <- parsed.data[which(parsed.data$time>20),]
-  
-  ##divide time into intervals (e.g. 40-41) 
-  cut1 <- cut(parsed.data.over20$time, breaks=seq(0, max(parsed.data$time), by = 1))
-  
-  
-  ##extract intervals as the min of the interval (e.g. 2 from 2-3)
-  time.interval <- as.numeric(str_extract(cut1, "[1-9]{1}[0-9]*"))
-  
-  parsed.data.tint <- parsed.data.over20
-  
-  
-  ##replace time column with the time interval (lower limit of time period +1 = 
-  ##upper limit of time interval)
-  parsed.data.tint$time <- time.interval
-  
-  ##make time a factor again
-  parsed.data.tint$time <- as.factor(parsed.data.tint$time)
-  
-  ##remove rows with NA values caused by binning
-  parsed.data.tint <- parsed.data.tint[complete.cases(parsed.data.tint),]
+  parsed.swip  <- parsed.swip[which(parsed.swip$time>20),]
   
   ##find peaks (maxima)
   
-  require("splus2R")
-  
-  ##making a variable for a particular worm
-  ##dat3 <- parsed.data.tint[parsed.data.tint$ID == 3 & parsed.data.tint$strain=="dat1",]
-  
-  ##making variables for individual strains
-  ##dat1 <- parsed.data.tint[parsed.data.tint$strain == "dat1",]
-  ##N2 <- parsed.data.tint[parsed.data.tint$strain == "N2",]
-  ##x3 <- parsed.data.tint[parsed.data.tint$strain == "x3",]
-  
   ##extract peaks (maxima for kink)
-  parsed.data.tint$kink.peaks <- peaks(parsed.data.tint$kink, span=9)
+  parsed.swip$kink.peaks <- peaks(parsed.swip$kink, span=7)
   
-  ##only keep maxima for kink if above user set upper_thresh (e.g. 115 degrees)
-  parsed.data.tint$kink.above.thresh <- parsed.data.tint$kink > upper_thresh
+  ##only keep maxima for kink if above user set upper_thresh (e.g. 80 degrees)
+  parsed.swip$kink.above.thresh <- parsed.swip$kink > upper_thresh
   
-  parsed.data.tint$good.peak <- parsed.data.tint$kink.peaks + parsed.data.tint$kink.above.thresh 
-  parsed.data.tint$good.peak[parsed.data.tint$good.peak == 1] <- 0
-  parsed.data.tint$good.peak[parsed.data.tint$good.peak == 2] <- 1
-  
-  
-   
 
-
+  parsed.swip$good.peak <- parsed.swip$kink.peaks + parsed.swip$kink.above.thresh 
+  parsed.swip$good.peak[parsed.swip$good.peak == 1] <- 0
+  parsed.swip$good.peak[parsed.swip$good.peak == 2] <- 1
+  
+  ##calculate minima by using maxima calculations of negative values of kink
+  parsed.swip$kink.minima <- -(parsed.swip$kink)
+  parsed.swip$kink.minima <- peaks(parsed.swip$kink.minima, span=7)
+  
+  #only keep minima for kink if below user set upper_thresh (e.g. 50 degrees)
+  
+  parsed.swip$kink.below.thresh <- parsed.swip$kink < lower_thresh
+  
+  parsed.swip$good.minima <- parsed.swip$kink.minima + parsed.swip$kink.below.thresh 
+  parsed.swip$good.minima[parsed.swip$good.minima == 1] <- 0
+  parsed.swip$good.minima[parsed.swip$good.minima == 2] <- 1
   
   ##summarise over time periods
   
+  ##break up by time periods by adding a new column (every 5 seconds)
+  parsed.swip$time.interval.5s <- cut(parsed.swip$time, breaks=seq(0, max(parsed.swip$time), by = 5))
   
-  ##using daply to get multiple data frames based on a splitting factor
-  ##x <- daply(df, .(splitting_variable), function(x)return(x))
+  ##change time interval to lower number of time interval (20-25=20)
+  parsed.swip$time.interval.5s <- as.numeric(str_extract(parsed.swip$time.interval.5s, "[1-9]{1}[0-9]*"))
+  
+  ##remove lines with NA values (rows at 660+ seconds can't figure out the time interval and are thus NA)
+  parsed.swip <- parsed.swip[complete.cases(parsed.swip),]
+  
+  ##remove lines with length values under 0.2000 (trying to exclude anything that isn't a worm, when worms bend for swimming their length becomes ~0.4000-0.5000, while straight worms are ~ 0.7000-0.8000), used a more conservative/smaller length because some strains are smaller than others
+  
+  swip.animal <- ddply(parsed.swip,.(plate,strain,ID),
+                   transform,
+                   mean.length=mean(length))
+  
+  swip.animal <- swip.animal[swip.animal$mean.length > 0.2000,]
+  
+  ##make two new columns that calculate the minimum and maximum time worms were tracked in a given time period (did worms persist for the entire 5s?)
+  swip.5s <- ddply(swip.animal,.(plate,strain,ID,time.interval.5s),
+                   transform,
+                   min.time=min(time), 
+                   max.time=max(time))
+  
+  ##only count a maximum if it's followed by a minimum in 0.5s
+  
+  swip.max.min <- swip.5s[swip.5s$good.peak == 1 | swip.5s$good.min == 1,]
+  #swip.no.threshold <- parsed.swip[parsed.swip$kink.peaks == TRUE | parsed.swip$kink.minima == TRUE,]
+  
+  swip.max.min.time.diff <- swip.max.min %>%
+  mutate(min.max = time - lag(time, default = 0)) %>%
+  mutate(real.max = good.peak == 1 & lead(good.minima == 1) & lead(min.max) < switch_time) 
+  
+  ##make a new dataframe that summarises the average number of peaks for each ID according to strain and plate and output the min and max times
+  swip.5s <- ddply(swip.max.min.time.diff,.(plate,strain,ID,time.interval.5s,min.time,max.time),summarise,sum.good.peak=sum(real.max))
   
   
-  library(plyr)
-  ##sum of kink peaks over each strain for each ID for each time period
-  kink.peaks.tint.sum <- ddply(parsed.data.tint,.(strain,time,ID),summarise,kink=sum(good.peak, na.rm=TRUE))
+    ##summarise to show kinks/s per worm per time period so that only worms that persist the entire 5s time period are used
+    swip.5s.persisting <- ddply(swip.5s,.(plate,strain,ID,time.interval.5s),summarise, kinks=ifelse(min.time<(time.interval.5s+0.05) && max.time>(time.interval.5s+4.95), sum.good.peak/5,NA)) 
+    
+    swip.5s.persisting <- swip.5s.persisting[complete.cases(swip.5s.persisting),] 
+}
   
-  ##average over each strain for each time period
-  kink.peaks.tint.mean <- ddply(kink.peaks.tint.sum,.(strain,time),summarise,kink.mean=(mean(kink)))
+
+# function to plot thrashing frequency in 5s blocks -----------------------
   
-  ##making bigger blocks of 20s for plotting
-  kink.peaks.tint.mean$time <- as.numeric(kink.peaks.tint.mean$time)
+  plot.thrashing.frequency <- function(data){
+    
+    ##summarise to show mean of kinks (thrashing frequency) and standard deviation for a time period per strain (don't include lines with na)
+    swip.5s.persisting.summ <- ddply(data,.(strain,time.interval.5s),summarise,mean.kinks=mean(kinks,na.rm=TRUE),stdev=stdev(kinks,na.rm=TRUE), N=length(which(!is.na(kinks))), median.kinks=median(kinks,na.rm=TRUE))
+    
+    ##calculate sem
+    swip.5s.persisting.summ$sem <- swip.5s.persisting.summ$stdev/sqrt(swip.5s.persisting.summ$N)
+    
+    swip.5s.persisting.summ$upper <- swip.5s.persisting.summ$mean.kinks + swip.5s.persisting.summ$sem
+    swip.5s.persisting.summ$lower <- swip.5s.persisting.summ$mean.kinks - swip.5s.persisting.summ$sem
+    
+  ##plotting kink for each 5 sec block for all worms existing for the entire block
+  plot1  <- ggplot(swip.5s.persisting.summ, aes(x = time.interval.5s, y = mean.kinks, colour = strain)) +
+    geom_line(size=1) +
+    geom_errorbar(alpha=0.4, aes(ymin=lower, ymax=upper)) + ##error bars lighter
+    scale_y_continuous(limits=c(0.0, 3.5), breaks=c(0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5), expand = c(0, 0)) + ##Set the y-axis limits to a range from 0 to 1, y-values every 0.5, and remove extra space above and below
+    scale_x_discrete(breaks=c(0,100,200,300,400,500,600)) + ## x-axis values every 100s
+    scale_color_discrete(name="") + ## remove legend title
+    theme(legend.key = element_blank()) + ## remove boxes around legend values
+    theme_classic() + ## remove background to make it white
+    labs(x="Time", y="Thrashing frequency (Hz)")
+    
+  plot1
   
-  cut2 <- cut(kink.peaks.tint.mean$time, breaks=seq(min(kink.peaks.tint.mean$time), max(kink.peaks.tint.mean$time), by = 20))
+  ggsave(plot1, file="Thrashing_frequency.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
   
-  time.interval <- as.numeric(str_extract(cut2, "[1-9]{1}[0-9]*"))
-  kink.peaks.tint.mean$time <- time.interval
-  kink.peaks.tint.mean <- kink.peaks.tint.mean[complete.cases(kink.peaks.tint.mean),]
-  kink.peaks.tint.mean$time <- as.numeric(kink.peaks.tint.mean$time)
-  kink.peaks.tint.mean20 <- ddply(kink.peaks.tint.mean,.(strain,time),summarise,kink.mean20=(mean(kink.mean)))
-  
-  
-  
-  
-  
-  ##plotting kink at 20s intervals
-  g20  <- ggplot(kink.peaks.tint.mean20, aes(x = time, y = kink.mean20, colour = strain)) +
-    geom_line() + geom_point() +
-    labs(x="Time", y="Kink")
-  
-  g20
-  
+
+#make a new dataframe with only the time period at 600s (10 min)
+  #kinks.600 <- swip.5s.persisting[swip.5s.persisting$time.interval.5s == 600,]
+kinks.600 <- data[data$time.interval.5s == 600,]
+
+##make a new data frame showing thrashes at 10 min
+
+plot2 <- ggplot(kinks.600, aes(x=strain, y=kinks)) +
+  geom_point(position=position_jitter(width=0.1)) +
+  geom_boxplot(alpha=0.2, outlier.shape = NA) +
+  scale_y_continuous(limits=c(0.0, 3.5), breaks=c(0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5), expand = c(0, 0)) + ##Set the y-axis limits to a range from 0 to 1, y-values every 0.5, and remove extra space above and below
+  scale_color_discrete(name="") + ## remove legend title
+  theme(legend.key = element_blank()) + ## remove boxes around legend values
+  theme_classic() + ## remove background to make it white
+  labs(x="Strain", y="Thrashing frequency at 10 min (Hz)")
+plot2
+
+ggsave(plot2, file="thrashing_frequency_10min.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
+
 }
 
+
+# function to plot thrashing frequency in 5s blocks -----------------------
+
+plot.fraction.swimming <- function(data){
+
+##graph fraction swimming throughout entire experiment
+  
+  ##fraction.swimming.throughout <- ddply(swip.5s.persisting,.(strain,time.interval.5s),summarise,fraction.swimming=sum(kinks!=0.0)/length(kinks), N=length(kinks))
+
+fraction.swimming.throughout <- ddply(data,.(strain,time.interval.5s),summarise,fraction.swimming=sum(kinks!=0.0)/length(kinks), sum.thrashes= sum(kinks!=0.0), N=length(kinks))
+
+conf_int <- binom.confint(fraction.swimming.throughout$sum.thrashes, fraction.swimming.throughout$N, 
+                          methods = "exact")
+
+## Add these confidence intervals to the data frame
+fraction.swimming.throughout$conf_int_lower <- conf_int$lower
+fraction.swimming.throughout$conf_int_upper <- conf_int$upper
+
+plot3 <- ggplot(fraction.swimming.throughout, aes(x=as.numeric(time.interval.5s), y=fraction.swimming, colour=strain)) +
+  geom_line(size=1) +
+  ##geom_errorbar(alpha=0.4, aes(ymin=conf_int_lower, ymax=conf_int_upper), width=0.5) +
+  scale_y_continuous(limits=c(0.0, 1.0), breaks=c(0.0,0.2,0.4,0.6,0.8,1.0), expand = c(0, 0)) + ##Set the y-axis limits to a range from 0 to 1, y-values every 0.5, and remove extra space above and below
+  scale_color_discrete(name="") + ## remove legend title
+  theme(legend.key = element_blank()) + ## remove boxes around legend values
+  theme_classic() + ## remove background to make it white
+  labs(x="Strain", y="Proportion swimming at 10 minutes")
+plot3
+
+ggsave(plot3, file="Fraction_swimming_throughout.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
+
+#fraction swimming at 600s
+fraction.swimming.600 <- fraction.swimming.throughout[fraction.swimming.throughout$time.interval.5s == 600,]
+
+plot4 <- ggplot(fraction.swimming.600, aes(x=strain, y=fraction.swimming)) +
+  geom_bar(stat="identity", fill="grey") +
+  geom_errorbar(aes(ymin=conf_int_lower, ymax=conf_int_upper), width=0.5) +
+  scale_y_continuous(limits=c(0.0, 1.0), breaks=c(0.0,0.2,0.4,0.6,0.8,1.0), expand = c(0, 0)) + ##Set the y-axis limits to a range from 0 to 1, y-values every 0.5, and remove extra space above and below
+  scale_color_discrete(name="") + ## remove legend title
+  theme(legend.key = element_blank()) + ## remove boxes around legend values
+  theme_classic() + ## remove background to make it white
+  labs(x="Strain", y="Proportion swimming at 10 minutes")
+
+plot4
+
+
+ggsave(plot4, file="Fraction_swimming_at_10min.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
+}
+
+main()

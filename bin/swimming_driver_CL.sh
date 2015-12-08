@@ -15,7 +15,8 @@
 ##		$3: absolute path to chore.jar (offline analysis program Choreography)
 ##	
 	
-##zip files if necessary	
+##zip files if necessary
+##cd $1	
 ##for foldername in *; do cd $foldername; zip ../$foldername *; cd ..; done
 
 ## Call choreography to analyze the MWT data. This must be done for each plate (i.e. each 
@@ -23,7 +24,6 @@
 ## of a stimulus and speed over the duration of the entire experiment (averaged over all 
 ## the worms on the plate).
 
-cd $1
 for zipfolder in *.zip; do java -Xmx$2g -jar $3 --shadowless -p 0.027 -N all -o Dlk --plugin Reoutline::despike --plugin Respine $zipfolder; done
 
 ## need to create a large file containing all data files with 
@@ -35,5 +35,5 @@ cd ../..
 ## create figure (Reversal probability versus stimulus number, plotting 95% confidence 
 ## interval) and do stats (Logistic regression comparing initial reversal probability and
 ## final reversal probability between groups).
-rscript bin/swimming_plot_CL.R $1
+rscript bin/SWIP_CL.R $1
 
