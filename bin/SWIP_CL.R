@@ -1,20 +1,42 @@
 #Tidied up by Catrina Loucks, 2015-11-09
 #Written by Catrina Loucks, 2015
 
-#load required libraries
-library(stringr)
-library(splus2R)
-library(plyr)
-library(dplyr)
-library(ggplot2)
-library(binom)
+#download and load required libraries
+
+if(!require("stringr")) {
+  install.packages("stringr")
+  library(stringr)
+}
+if(!require("splus2R")) {
+  install.packages("splus2R")
+  library(splus2R)
+}
+if(!require("plyr")) {
+  install.packages("plyr")
+  library(plyr)
+}
+if(!require("dplyr")) {
+  install.packages("dplyr")
+  library(dplyr)
+}
+if(!require("ggplot2")) {
+  install.packages("ggplot2")
+  library(ggplot2)
+}
+if(!require("binom")) {
+  install.packages("binom")
+  library(binom)
+}
 
 ##main function
 
 main <- function() {
   
+  args <- commandArgs(trailingOnly = TRUE)
+  swip.data <- args[1]
+  
   ##using function to extract column names
-  parsed.swip  <- extract.col(read.table("swip.dat"))
+  parsed.swip  <- extract.col(read.table(swip.data))
   
   ##counting thrashes over time
   thrashes.swip <- count.thrashes(parsed.swip)
@@ -172,7 +194,7 @@ switch_time=0.5 ##set the maximum time between maxima and minima (seconds)
     
   plot1
   
-  ggsave(plot1, file="Thrashing_frequency.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
+  ggsave(plot1, file="Thrashing_frequency_throughout.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
   
 
 #make a new dataframe with only the time period at 600s (10 min)
@@ -191,7 +213,7 @@ plot2 <- ggplot(kinks.600, aes(x=strain, y=kinks)) +
   labs(x="Strain", y="Thrashing frequency at 10 min (Hz)")
 plot2
 
-ggsave(plot2, file="thrashing_frequency_10min.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
+ggsave(plot2, file="Thrashing_frequency_10min.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
 
 }
 
@@ -240,7 +262,7 @@ plot4 <- ggplot(fraction.swimming.600, aes(x=strain, y=fraction.swimming)) +
 plot4
 
 
-ggsave(plot4, file="Fraction_swimming_at_10min.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
+ggsave(plot4, file="Fraction_swimming_10min.pdf", useDingbats=FALSE, height=4, width=6, units="in", dpi=300)
 }
 
 main()

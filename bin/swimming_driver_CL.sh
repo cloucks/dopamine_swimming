@@ -9,31 +9,27 @@
 ## Set working directory to project's root directory
 ##
 ## Requires the following input from the user:
-##		$1:	directory that data is in 
+##		$1:	directory that data is in (must be a folder with only the .zip files from the tracker)
 ##		$2: gigabytes of memory to be used to run Choreography (dependent upon
 ##			the machine you are using
 ##		$3: absolute path to chore.jar (offline analysis program Choreography)
 ##	
+## Example usage of this script from the Bash Shell:
+## bash bin/swimming_driver_CL.sh data/test/ 4 /Users/catrinaloucks/Documents/PhD/EFHC1/dopamine_swimming/bin/Chore.jar
 	
-##zip files if necessary
-##cd $1	
-##for foldername in *; do cd $foldername; zip ../$foldername *; cd ..; done
+## change to the directory that data is in
+cd $1	
 
 ## Call choreography to analyze the MWT data. This must be done for each plate (i.e. each 
-## .zip folder). Choreography output options here ask for reversals occurring within 0.5 s 
-## of a stimulus and speed over the duration of the entire experiment (averaged over all 
-## the worms on the plate).
-
+## .zip folder)
 for zipfolder in *.zip; do java -Xmx$2g -jar $3 --shadowless -p 0.027 -N all -o Dlk --plugin Reoutline::despike --plugin Respine $zipfolder; done
 
 ## need to create a large file containing all data files with 
 ## data, plate name and strain name in each row
-##grep -r '[0-9]' $(find ./data -name '*.dat') > merged.file
 for filename in $(find . -name '*.dat'); do grep -H '[0-9]' $filename >> swip.dat; done
-cd ../..
 
 ## create figure (Reversal probability versus stimulus number, plotting 95% confidence 
 ## interval) and do stats (Logistic regression comparing initial reversal probability and
 ## final reversal probability between groups).
-rscript bin/SWIP_CL.R $1
+rscript ../../bin/SWIP_CL.R swip.dat
 
