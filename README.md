@@ -17,9 +17,24 @@ Object Size Hysteresis (%) = 10
 
 ###Analysis set-up
 
-The working directory is a folder with all the files needed for a SWIP project. This folder contains a bin folder containing all of the required programs and a data folder containing individual folders with unique names corresponding to individual experiments. Each of the unique experimental folders in the data folder will contain all of the Multi-worm tracker files as .zip files that you want to use for a particular graph and can be over a few days. Files are taken from the Multi-worm tracker, zipped and put in a new folder.
+The working directory is a folder with all the files needed for a SWIP project. This folder contains a bin folder containing all of the required programs and a data folder containing individual folders with unique names corresponding to individual experiments. Each of the unique experimental folders in the data folder will contain all of the Multi-worm tracker files as .zip files that you want to use for a particular graph (.zip files can be from a few days). Files are taken from the Multi-worm tracker, zipped and put in a new folder.
 
 An example folder set-up is as follows:
 
+SWIP = working directory
+SWIP/bin = folder where all programs are kept and contains:
+  -Chore.jar (jar file to run choreography to extract length and kink of animals)
+  -swimming_driver_CL.sh (shell script to run from the command line to get graphical output for the SWIP experiments)
+  -SWIP_CL.R (R script to run from within the shell script that analyses the data to get the graphs)
+SWIP/data = folder where all data are kept in .zip files (in individual folders for individual experiments, e.g., test)
+
+The output is as follows:
+
+The graph that I find the most useful is Thrashing_frequency_throughout. Worms swim with C-shaped bends in liquid that can be extracted as maxima and minima in the kink values extracted by choreography. This graph shows the average number of thrashes per second (Hz) for individual strains. Analysis was binned in 5 second intervals and only worms persisting for the entire 5 seconds were used. Wild-type worms have a high, and relatively constant thrashing frequency, while dat-1 mutants have a lower and steadily decreasing thrashing frequency due to progressive paralysis. Other mutants may show similarities to either strain. I prefer this graph because there are jumps and falls in the thrashing frequency over time.
+
+The other graphs I created are preiliminary, and if you would like to use them, I can help to make them more polished.
+  -Thrashing_frequency_10min (boxplot of thrashing frequency at 10 minutes)
+  -Fraction_swimming_throughout (fraction of worms showing at least one thrash/second throughout the 660 seconds)
+  -Fraction_swimming_10min (fraction of worms showing at least one thrash/second at 10 minutes)
 
 
