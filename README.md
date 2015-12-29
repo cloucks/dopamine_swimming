@@ -34,7 +34,7 @@ The graph that I find the most useful is Thrashing_frequency_throughout. Worms s
 
 The other graphs I created are preiliminary, and if you would like to use them, I can help to make them more polished.
   -Thrashing_frequency_10min (boxplot of thrashing frequency at 10 minutes)
-  -Fraction_swimming_throughout (fraction of worms showing at least one thrash/second throughout the 660 seconds)
-  -Fraction_swimming_10min (fraction of worms showing at least one thrash/second at 10 minutes)
+  -Fraction_swimming_throughout (fraction of worms showing at least one thrash/5 second bin throughout the 660 seconds)
+  -Fraction_swimming_10min (fraction of worms showing at least one thrash/5 second bin at 10 minutes)
 
 
