@@ -4,12 +4,11 @@
 ## This is the driver script that will call modulars scripts to attack each chunk
 ## of the problem: this software will allow you to assess the swimming-induced paralysis 
 ## (SWIP) phenotype using data from the Multi-worm tracker (Swierczek et al., 2011). 
-##
-##
-## Set working directory to project's root directory
+## 
+## Before running this script, set the working directory to project's root directory.
 ##
 ## Requires the following input from the user:
-##		$1:	directory that data is in (must be a folder with only the .zip files from the tracker)
+##		$1: directory that data is in (must be a folder with only the .zip files from the tracker)
 ##		$2: gigabytes of memory to be used to run Choreography (dependent upon
 ##			the machine you are using
 ##		$3: absolute path to chore.jar (offline analysis program Choreography)
@@ -32,4 +31,7 @@ for filename in $(find . -name '*.dat'); do grep -H '[0-9]' $filename >> swip.da
 ## interval) and do stats (Logistic regression comparing initial reversal probability and
 ## final reversal probability between groups).
 rscript ../../bin/SWIP_CL.R swip.dat
+
+bash bin/swimming_driver_CL.sh data/test 4 /Users/catrinaloucks/Documents/PhD/EFHC1/dopamine_swimming/bin/Chore.jar 
+
 

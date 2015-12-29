@@ -64,7 +64,7 @@ extract.col <- function(data){
   new.data <- cbind(date, plate, time, strain, data[,2:dim(data)[2]])
   
   #re-order strain factor so that plots are in appropriate order
-  new.data$strain <- factor(new.data$strain, levels=c("N2","dat-1","gk","tm","ow47","r1","er1","res1","res2","N2res1","N2res2","N2frag1","N2frag2"), order=TRUE)
+  new.data$strain <- factor(new.data$strain, levels=c("N2","dat-1","gk","fkh-8","tm","ow47","r1","er1","res1","res2","N2res1","N2res2","N2frag1","N2frag2"), order=TRUE)
   
   ##rename columns  
   colnames(new.data) <- c("date", "plate", "time", "strain", "ID", "length", "kink")
