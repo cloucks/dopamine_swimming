@@ -32,6 +32,4 @@ for filename in $(find . -name '*.dat'); do grep -H '[0-9]' $filename >> swip.da
 ## final reversal probability between groups).
 rscript ../../bin/SWIP_CL.R swip.dat
 
-bash bin/swimming_driver_CL.sh data/test 4 /Users/catrinaloucks/Documents/PhD/EFHC1/dopamine_swimming/bin/Chore.jar 
-
 
